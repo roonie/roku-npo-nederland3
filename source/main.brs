@@ -146,7 +146,6 @@ End Sub
 
 Sub PaintFullscreenCanvas()
     list = []
-
     if m.progress < 100
         color = "#000000" 'opaque black
         list.Push({
@@ -157,9 +156,8 @@ Sub PaintFullscreenCanvas()
     else if m.paused
         color = "#80000000" 'semi-transparent black
         list.Push({
-            Text: "Gepauzeerd"
-            TextAttrs: { font: "huge" }
-            TargetRect: m.layout.full
+            url: "pkg:/images/pause_icon_large.png"
+            TargetRect: { x: 580, y: 300, w: 120, h: 120 }
         })
     else
         color = "#00000000" 'fully transparent
@@ -206,8 +204,8 @@ Sub PaintFramedCanvas()
                 CompositionMode: "Source"
             })
             list.Push({
-                Text: "Gepauzeerd"
-                TargetRect: m.layout.left
+                url: "pkg:/images/pause_icon_small.png"
+                TargetRect: { x: 430, y: 341, w: 61, h: 61 }
             })
         else  'not paused
             list.Push({
