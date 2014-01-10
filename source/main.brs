@@ -24,6 +24,7 @@ Sub Setup() As Object
         player:    CreateObject("roVideoPlayer")
         setup:     SetupFramedCanvas
         paint:     PaintFramedCanvas
+        overlay:   false
         eventloop: EventLoop
     }
 
@@ -31,9 +32,10 @@ Sub Setup() As Object
     this.help = ""
 
     'Register available fonts:
-    this.fonts.Register("pkg:/fonts/hnr.otf")
     this.textcolor = "#fff"
     this.alttextcolor = "#FF6D00"
+    this.orange = "#FF6D00"
+    this.gray = "#A2A2A2"
 
     'Setup image canvas:
     this.canvas.SetMessagePort(this.port)
@@ -46,7 +48,7 @@ Sub Setup() As Object
         this.layout = {
             full:   this.canvas.GetCanvasRect()
             top:    { x:   0, y:   0, w:1280, h: 130 }
-            left:   { x: 150, y: 197, w: 622, h: 350 }
+            left:   { x: 150, y: 190, w: 622, h: 350 }
             right:  { x: 800, y: 227, w: 350, h: 291 }
             bottom: { x: 249, y: 630, w: 780, h: 100 }
         }
@@ -103,7 +105,7 @@ Sub EventLoop()
             else if msg.isRemoteKeyPressed()
                 index = msg.GetIndex()
                 print "Remote button pressed: " + index.tostr()
-                if index = 2  '<UP>
+                if index = 4  '<LEFT>
                     return
                 else if index = 3 '<DOWN> (toggle fullscreen)
                     if m.paint = PaintFullscreenCanvas
@@ -118,6 +120,13 @@ Sub EventLoop()
                     end if
                     m.setup()
                     m.player.SetDestinationRect(rect)
+                else if index = 2 '<UP>
+                    if m.overlay = true
+                        m.overlay = false
+                    else
+                        m.overlay = true
+                    end if
+                    m.setup()
                 else if index = 13  '<PAUSE/PLAY>
                     if m.paused m.player.Resume() else m.player.Pause()
                 end if
@@ -145,7 +154,14 @@ Sub SetupFullscreenCanvas()
 End Sub
 
 Sub PaintFullscreenCanvas()
+
+    jsonRequest = CreateObject("roUrlTransfer")
+    jsonRequest.SetURL("http://nltvnow.herokuapp.com/now")
+    response = ParseJson(jsonRequest.GetToString())
+    title = response.NED3[0].title
+
     list = []
+    mode = CreateObject("roDeviceInfo").GetDisplayMode()
     if m.progress < 100
         color = "#000000" 'opaque black
         list.Push({
@@ -153,12 +169,74 @@ Sub PaintFullscreenCanvas()
             TextAttrs: { font: "huge" }
             TargetRect: m.layout.full
         })
+    else if m.overlay
+        color = "#00000000" 'transparent black
+        if mode = "720p"
+            list.Push({
+                url: "pkg:/images/header_overlay.png"
+                TargetRect: { x: 0, y: 0, w: 1280, h: 122 }
+            })
+            list.Push({
+                url: "pkg:/images/logo_channel.png"
+                TargetRect: { x: 26, y: 18, w: 89, h: 89 }
+            })
+            list.Push({
+                Text: "Nu"
+                TextAttrs: { font: "medium", halign: "left", valign: "center", color: m.textcolor }
+                TargetRect: { x: 153, y: 0, w: 50, h: 122 }
+            })
+            list.Push({
+                Text: title
+                TextAttrs: { font: "medium", halign: "left", valign: "center", color: m.alttextcolor }
+                TargetRect: { x: 193, y: 0, w: 954, h: 122 }
+            })
+            if m.paused
+                color = "#80000000" 'semi-transparent black
+                list.Push({
+                    url: "pkg:/images/pause_icon_large.png"
+                    TargetRect: { x: 580, y: 300, w: 120, h: 120 }
+                })
+            end if
+        else
+            list.Push({
+                url: "pkg:/images/header_overlay.png"
+                TargetRect: { x: 0, y: 0, w: 720, h: 81 }
+            })
+            list.Push({
+                url: "pkg:/images/logo_channel.png"
+                TargetRect: { x: 17, y: 12, w: 58, h: 58 }
+            })
+            list.Push({
+                Text: "Nu"
+                TextAttrs: { font: "medium", halign: "left", valign: "center", color: m.textcolor }
+                TargetRect: { x: 101, y: 0, w: 30, h: 81 }
+            })
+            list.Push({
+                Text: title
+                TextAttrs: { font: "medium", halign: "left", valign: "center", color: m.alttextcolor }
+                TargetRect: { x: 131, y: 0, w: 589, h: 81 }
+            })
+            if m.paused
+                color = "#80000000" 'semi-transparent black
+                list.Push({
+                    url: "pkg:/images/pause_icon_large.png"
+                    TargetRect: { x: 325, y: 205, w: 70, h: 70 }
+                })
+            end if
+        end if
     else if m.paused
         color = "#80000000" 'semi-transparent black
-        list.Push({
-            url: "pkg:/images/pause_icon_large.png"
-            TargetRect: { x: 580, y: 300, w: 120, h: 120 }
-        })
+        if mode = "720p"
+            list.Push({
+                url: "pkg:/images/pause_icon_large.png"
+                TargetRect: { x: 580, y: 300, w: 120, h: 120 }
+            })
+        else
+            list.Push({
+                url: "pkg:/images/pause_icon_large.png"
+                TargetRect: { x: 325, y: 205, w: 70, h: 70 }
+            })
+        end if
     else
         color = "#00000000" 'fully transparent
     end if
@@ -166,6 +244,7 @@ Sub PaintFullscreenCanvas()
     m.canvas.SetLayer(0, { Color: color, CompositionMode: "Source" })
     m.canvas.SetLayer(1, list)
 End Sub
+
 
 Sub SetupFramedCanvas()
     m.canvas.AllowUpdates(false)
@@ -186,7 +265,12 @@ Sub SetupFramedCanvas()
 End Sub
 
 Sub PaintFramedCanvas()
+    jsonRequest = CreateObject("roUrlTransfer")
+    jsonRequest.SetURL("http://nltvnow.herokuapp.com/now")
+    guide = ParseJson(jsonRequest.GetToString())
+
     list = []
+    mode = CreateObject("roDeviceInfo").GetDisplayMode()
     if m.progress < 100  'Video is aan het laden...
         list.Push({
             Color: "#80000000"
@@ -203,9 +287,22 @@ Sub PaintFramedCanvas()
                 TargetRect: m.layout.left
                 CompositionMode: "Source"
             })
+            if mode = "720p"
+                list.Push({
+                    url: "pkg:/images/pause_icon_small.png"
+                    TargetRect: { x: 430, y: 334, w: 61, h: 61 }
+                })
+            else
+                list.Push({
+                    url: "pkg:/images/pause_icon_small.png"
+                    TargetRect: { x: 230, y: 214, w: 40, h: 40 }
+                })
+            end if
+        else if m.overlay
             list.Push({
-                url: "pkg:/images/pause_icon_small.png"
-                TargetRect: { x: 430, y: 341, w: 61, h: 61 }
+                Color: "#00000000"
+                TargetRect: m.layout.left
+                CompositionMode: "Source"
             })
         else  'not paused
             list.Push({
@@ -214,11 +311,69 @@ Sub PaintFramedCanvas()
                 CompositionMode: "Source"
             })
         end if
-        list.Push({
-            Text: ""
-            TargetRect: m.layout.bottom
-            TextAttrs: { halign: "left", valign: "top", color: m.alttextcolor }
-        })
+        if mode = "720p"
+            list.Push({
+                Text: "Nu"
+                TargetRect: { x: 859, y: 200, w: 70, h: 80 }
+                TextAttrs: { font: "small", halign: "right", valign: "center", color: m.orange }
+            })
+            list.Push({
+                Text: guide.NED3[0].title
+                TargetRect: { x: 951, y: 200, w: 250, h: 80 }
+                TextAttrs: { font: "small", halign: "left", valign: "center", color: m.textcolor }
+            })
+            list.Push({
+                Text: guide.NED3[1].start_time
+                TargetRect: { x: 859, y: 300, w: 70, h: 80 }
+                TextAttrs: { font: "small", halign: "right", valign: "center", color: m.gray }
+            })
+            list.Push({
+                Text: guide.NED3[1].title
+                TargetRect: { x: 951, y: 300, w: 250, h: 80 }
+                TextAttrs: { font: "small", halign: "left", valign: "center", color: m.gray }
+            })
+            list.Push({
+                Text: guide.NED3[2].start_time
+                TargetRect: { x: 859, y: 400, w: 70, h: 80 }
+                TextAttrs: { font: "small", halign: "right", valign: "center", color: m.gray }
+            })
+            list.Push({
+                Text: guide.NED3[2].title
+                TargetRect: { x: 951, y: 400, w: 250, h: 80 }
+                TextAttrs: { font: "small", halign: "left", valign: "center", color: m.gray }
+            })
+        else
+            list.Push({
+                Text: "Nu"
+                TargetRect: { x: 443, y: 132, w: 50, h: 55 }
+                TextAttrs: { font: "s", halign: "right", valign: "center", color: m.orange }
+            })
+            list.Push({
+                Text: guide.NED3[0].title
+                TargetRect: { x: 499, y: 132, w: 193, h: 55 }
+                TextAttrs: { font: "s", halign: "left", valign: "center", color: m.textcolor }
+            })
+            list.Push({
+                Text: guide.NED3[1].start_time
+                TargetRect: { x: 443, y: 193, w: 50, h: 55 }
+                TextAttrs: { font: "s", halign: "right", valign: "center", color: m.gray }
+            })
+            list.Push({
+                Text: guide.NED3[1].title
+                TargetRect: { x: 499, y: 193, w: 193, h: 55 }
+                TextAttrs: { font: "s", halign: "left", valign: "center", color: m.gray }
+            })
+            list.Push({
+                Text: guide.NED3[2].start_time
+                TargetRect: { x: 443, y: 254, w: 50, h: 55 }
+                TextAttrs: { font: "s", halign: "right", valign: "center", color: m.gray }
+            })
+            list.Push({
+                Text: guide.NED3[2].title
+                TargetRect: { x: 499, y: 254, w: 193, h: 55 }
+                TextAttrs: { font: "s", halign: "left", valign: "center", color: m.gray }
+            })
+        end if
     end if
     m.canvas.SetLayer(1, list)
 End Sub
